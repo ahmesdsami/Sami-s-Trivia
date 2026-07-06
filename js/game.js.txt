@@ -1,0 +1,72 @@
+// Game state and logic
+const Game = {
+  players: [],
+  currentPlayerIndex: 0,
+  categories: [],
+  board: {},
+  activeQuestion: null,
+  totalQuestions: 40,
+  answered: 0,
+
+  init(playerNames) {
+    this.players = playerNames.map(name => ({ name, score: 0 }));
+    this.currentPlayerIndex = 0;
+    this.answered = 0;
+    this.pickCategories();
+    this.buildBoard();
+  },
+
+  pickCategories() {
+    const all = Object.keys(CATEGORIES);
+    const shuffled = [...all].sort(() => Math.random() - 0.5);
+    this.categories = shuffled.slice(0, 4);
+  },
+
+  buildBoard() {
+    this.board = {};
+    const points = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
+    this.categories.forEach(cat => {
+      const qs = CATEGORIES[cat];
+      this.board[cat] = qs.map((item, i) => ({
+        points: points[i],
+        q: item.q,
+        a: item.a,
+        used: false
+      }));
+    });
+  },
+
+  currentPlayer() {
+    return this.players[this.currentPlayerIndex];
+  },
+
+  selectQuestion(category, index) {
+    const tile = this.board[category][index];
+    if (tile.used) return null;
+    this.activeQuestion = { category, index, ...tile };
+    return this.activeQuestion;
+  },
+
+  resolveQuestion(correct) {
+    const { category, index, points } = this.activeQuestion;
+    this.board[category][index].used = true;
+    if (correct) {
+      this.currentPlayer().score += points;
+    }
+    this.answered++;
+    this.activeQuestion = null;
+    this.nextTurn();
+  },
+
+  nextTurn() {
+    this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
+  },
+
+  isGameOver() {
+    return this.answered >= this.totalQuestions;
+  },
+
+  finalRanking() {
+    return [...this.players].sort((a, b) => b.score - a.score);
+  }
+};

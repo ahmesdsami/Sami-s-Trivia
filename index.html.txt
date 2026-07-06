@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Ultimate Trivia Showdown</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Tahoma, sans-serif; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: #fff; min-height: 100vh; }
+.screen { display: none; padding: 20px; min-height: 100vh; }
+.screen.active { display: block; }
+.setup-card { max-width: 500px; margin: 40px auto; background: rgba(0,0,0,0.5); padding: 30px; border-radius: 15px; text-align: center; }
+.setup-card h1 { margin-bottom: 10px; font-size: 2rem; }
+.subtitle { color: #ffd700; margin-bottom: 25px; }
+.setup-card label { display: block; margin: 15px 0 5px; text-align: left; font-weight: bold; }
+.setup-card input { width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #ffd700; background: #fff; color: #000; font-size: 1rem; }
+.hint-text { margin-top: 15px; font-size: 0.85rem; opacity: 0.7; }
+.primary-btn, .secondary-btn, .correct-btn, .wrong-btn, .tool-btn, .steal-btn { padding: 10px 18px; font-size: 0.95rem; border: none; border-radius: 8px; cursor: pointer; margin: 5px; font-weight: bold; transition: all 0.2s; }
+.primary-btn { background: #ffd700; color: #1e3c72; }
+.secondary-btn { background: #555; color: #fff; }
+.correct-btn { background: #27ae60; color: #fff; }
+.wrong-btn { background: #c0392b; color: #fff; }
+.tool-btn { background: #8e44ad; color: #fff; font-size: 0.85rem; padding: 8px 12px; }
+.tool-btn:hover:not(:disabled) { background: #9b59b6; transform: translateY(-2px); }
+.tool-btn:disabled, .steal-btn:disabled { opacity: 0.3; cursor: not-allowed; text-decoration: line-through; }
+.steal-btn { background: #e67e22; color: #fff; }
+.steal-btn:hover:not(:disabled) { background: #f39c12; }
+.top-bar { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.5); padding: 15px 20px; border-radius: 12px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+#scoreboard { display: flex; gap: 10px; flex-wrap: wrap; }
+.score-chip { background: #ffd700; color: #1e3c72; padding: 8px 12px; border-radius: 12px; font-weight: bold; font-size: 0.9rem; min-width: 140px; text-align: center; }
+.score-chip.active { background: #27ae60; color: #fff; box-shadow: 0 0 10px #27ae60; }
+.score-chip .sub { display: block; font-size: 0.75rem; font-weight: normal; margin-top: 2px; opacity: 0.9; }
+.board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.category-header { background: #ffd700; color: #1e3c72; padding: 15px 5px; text-align: center; font-weight: bold; border-radius: 8px; min-height: 60px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
+.tile { background: #1a2a5c; color: #ffd700; padding: 20px 5px; text-align: center; font-size: 1.4rem; font-weight: bold; border-radius: 8px; cursor: pointer; border: 2px solid #2a5298; }
+.tile:hover:not(.used) { background: #ffd700; color: #1a2a5c; }
+.tile.used { background: #333; color: #666; cursor: not-allowed; opacity: 0.4; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; overflow-y: auto; }
+.modal.hidden { display: none; }
+.modal-content { background: linear-gradient(135deg, #2a5298, #1e3c72); padding: 25px; border-radius: 15px; max-width: 750px; width: 100%; border: 3px solid #ffd700; text-align: center; max-height: 95vh; overflow-y: auto; }
+.modal-header { display: flex; justify-content: space-between; margin-bottom: 15px; font-weight: bold; color: #ffd700; }
+.question-text { font-size: 1.3rem; margin: 15px 0; line-height: 1.4; }
+.answer { background: rgba(255,215,0,0.15); border: 2px solid #ffd700; padding: 12px; border-radius: 10px; margin: 12px 0; font-weight: bold; color: #ffd700; }
+.hint-box { background: rgba(52,152,219,0.2); border: 2px dashed #3498db; padding: 10px; border-radius: 8px; margin: 10px 0; font-style: italic; color: #3498db; }
+.choices-box { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+.choice-item { background: rgba(255,255,255,0.1); border: 1px solid #fff; padding: 10px; border-radius: 6px; }
+.two-answer-notice { background: rgba(155,89,182,0.3); border: 2px solid #9b59b6; padding: 10px; border-radius: 8px; margin: 10px 0; color: #fff; }
+.tools-bar { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 10px; }
+.tools-label { width: 100%; font-size: 0.85rem; color: #ffd700; margin-bottom: 5px; }
+.hidden { display: none; }
+#final-scores { margin: 20px 0; }
+.final-row { background: rgba(0,0,0,0.3); padding: 12px 20px; border-radius: 8px; margin: 8px 0; display: flex; justify-content: space-between; }
+.final-row.winner { background: #ffd700; color: #1e3c72; font-weight: bold; }
+.stats-log { max-height: 200px; overflow-y: auto; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 8px; margin-top: 15px; text-align: left; font-size: 0.85rem; }
+.stats-log div { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.steal-section { margin: 15px 0; padding: 10px; background: rgba(230,126,34,0.15); border: 2px solid #e67e22; border-radius: 10px; }
+@media (max-width: 700px) {
+  .board { grid-template-columns: repeat(2, 1fr); }
+  .choices-box { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<section id="setup-screen" class="screen active">
+  <div class="setup-card">
+    <h1>🎯 Ultimate Trivia Showdown</h1>
+    <p class="subtitle">4 Random Categories · 10 Questions Each · Steals · Tools · Sounds</p>
+    <label for="player-count">Number of Players (2–8)</label>
+    <input type="number" id="player-count" min="2" max="8" value="2"/>
+    <div id="players-inputs"></div>
+    <button id="start-btn" class="primary-btn">Start Game</button>
+    <p class="hint-text">Each player gets: 5 steals + 4 unique tools (Hint, 4 Choices, 2 Answers, Replace Question)</p>
+  </div>
+</section>
+
+<section id="board-screen" class="screen">
+  <header class="top-bar">
+    <h2>Turn: <span id="current-player">—</span></h2>
+    <div id="scoreboard"></div>
+    <button id="end-game-btn" class="secondary-btn">End Game</button>
+  </header>
+  <div id="board" class="board"></div>
+</section>
+
+<div id="question-modal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span id="q-category"></span>
+      <span id="q-points"></span>
+    </div>
+    <p id="q-text" class="question-text"></p>
+
+    <div id="q-hint" class="hint-box hidden"></div>
+    <div id="q-choices" class="choices-box hidden"></div>
+    <div id="q-two-answer" class="two-answer-notice hidden">📝 2-Answer Tool active: You may give 2 answers, either counts.</div>
+
+    <div class="tools-bar">
+      <div class="tools-label">🛠️ Tools (one-time use per player):</div>
+      <button class="tool-btn" id="tool-hint">💡 Hint</button>
+      <button class="tool-btn" id="tool-choices">🔤 4 Choices</button>
+      <button class="tool-btn" id="tool-two">✌️ 2 Answers</button>
+      <button class="tool-btn" id="tool-replace">🔄 Replace Question</button>
+    </div>
+
+    <div id="q-answer" class="answer hidden"></div>
+
+    <div>
+      <button id="reveal-btn" class="primary-btn">Reveal Answer</button>
+      <button id="correct-btn" class="correct-btn hidden">✔ Correct</button>
+      <button id="wrong-btn" class="wrong-btn hidden">✘ Wrong</button>
+    </div>
+
+    <div id="steal-section" class="steal-section hidden">
+      <p style="margin-bottom:8px;"><strong>🎯 Any other player wants to steal?</strong></p>
+      <div id="steal-buttons"></div>
+      <button id="skip-steal-btn" class="secondary-btn" style="margin-top:8px;">No Steal - Continue</button>
+    </div>
+  </div>
+</div>
+
+<section id="end-screen" class="screen">
+  <div class="setup-card" style="max-width:650px;">
+    <h1>🏆 Game Over!</h1>
+    <div id="final-scores"></div>
+    <h3 style="color:#ffd700; margin-top:20px;">📊 Steal Log</h3>
+    <div id="steal-log" class="stats-log"></div>
+    <button id="restart-btn" class="primary-btn" style="margin-top:15px;">Play Again</button>
+  </div>
+</section>
+
+<!-- SOUND EFFECTS (Base64-encoded short WAV clips embedded — no external files needed) -->
+<audio id="sfx-correct" preload="auto">
+  <source src="https://cdn.jsdelivr.net/gh/naptha/tesseract.js@master/tests/assets/click.wav" type="audio/wav">
+</audio>
+
+<script src="js/questions.js"></script>
+<script>
+// ========== SOUND EFFECTS (using Web Audio API - no files needed) ==========
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+function initAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
+
+function playTone(frequencies, duration, type = 'sine') {
+  initAudio();
+  const now = audioCtx.currentTime;
+  frequencies.forEach((f, i) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.value = f.freq;
+    gain.gain.setValueAtTime(0.15, now + f.start);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + f.start + f.dur);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(now + f.start); osc.stop(now + f.start + f.dur);
+  });
+}
+
+const SFX = {
+  correct: () => playTone([
+    {freq: 523, start: 0, dur: 0.12},
+    {freq: 659, start: 0.1, dur: 0.12},
+    {freq: 784, start: 0.2, dur: 0.2}
+  ]),
+  wrong: () => playTone([
+    {freq: 220, start: 0, dur: 0.2},
+    {freq: 180, start: 0.15, dur: 0.3}
+  ], 0, 'sawtooth'),
+  finish: () => playTone([
+    {freq: 523, start: 0, dur: 0.15},
+    {freq: 659, start: 0.15, dur: 0.15},
+    {freq: 784, start: 0.3, dur: 0.15},
+    {freq: 1047, start: 0.45, dur: 0.4}
+  ])
+};
+
+// ========== GAME STATE ==========
+const Game = {
+  players: [],
+  currentPlayerIndex: 0,
+  categories: [],
+  board: {},
+  activeQuestion: null,
+  totalQuestions: 40,
+  answered: 0,
+  stealLog: [],
+  usedQuestionIndices: {}, // {category: Set of used question array indices}
+
+  init(names) {
+    this.players = names.map(n => ({
+      name: n,
+      score: 0,
+      steals: 5,
+      stealCount: 0,
+      tools: { hint: true, choices: true, two: true, replace: true }
+    }));
+    this.currentPlayerIndex = 0;
+    this.answered = 0;
+    this.stealLog = [];
+    this.usedQuestionIndices = {};
+    const all = Object.keys(CATEGORIES);
+    this.categories = [...all].sort(() => Math.random() - 0.5).slice(0, 4);
+    this.buildBoard();
+  },
+
+  buildBoard() {
+    this.board = {};
+    const points = [100,200,300,400,500,600,700,800,900,1000];
+    this.categories.forEach(cat => {
+      this.usedQuestionIndices[cat] = new Set();
+      const pool = CATEGORIES[cat];
+      this.board[cat] = [];
+      for (let diffIdx = 0; diffIdx < 10; diffIdx++) {
+        // Filter pool by difficulty (points bracket)
+        const candidates = pool.filter((q, i) => q.difficulty === diffIdx && !this.usedQuestionIndices[cat].has(i));
+        // Pick random one
+        let chosen;
+        if (candidates.length > 0) {
+          chosen = candidates[Math.floor(Math.random() * candidates.length)];
+        } else {
+          // Fallback: any unused question
+          const fallback = pool.filter((q, i) => !this.usedQuestionIndices[cat].has(i));
+          chosen = fallback[Math.floor(Math.random() * fallback.length)] || pool[0];
+        }
+        const origIdx = pool.indexOf(chosen);
+        this.usedQuestionIndices[cat].add(origIdx);
+        this.board[cat].push({
+          points: points[diffIdx],
+          difficulty: diffIdx,
+          q: chosen.q,
+          a: chosen.a,
+          hint: chosen.hint || "No hint available.",
+          choices: chosen.choices || [chosen.a, "Option B", "Option C", "Option D"],
+          used: false
+        });
+      }
+    });
+  },
+
+  currentPlayer() { return this.players[this.currentPlayerIndex]; },
+
+  selectQuestion(cat, idx) {
+    const t = this.board[cat][idx];
+    if (t.used) return null;
+    this.activeQuestion = { category: cat, index: idx, ...t };
+    return this.activeQuestion;
+  },
+
+  replaceActiveQuestion() {
+    // Pull a fresh unused question at the same difficulty from the pool
+    const cat = this.activeQuestion.category;
+    const diff = this.activeQuestion.difficulty;
+    const pool = CATEGORIES[cat];
+    const candidates = pool.filter((q, i) => q.difficulty === diff && !this.usedQuestionIndices[cat].has(i));
+    if (candidates.length === 0) return false;
+    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+    const origIdx = pool.indexOf(chosen);
+    this.usedQuestionIndices[cat].add(origIdx);
+    const boardIdx = this.activeQuestion.index;
+    this.board[cat][boardIdx].q = chosen.q;
+    this.board[cat][boardIdx].a = chosen.a;
+    this.board[cat][boardIdx].hint = chosen.hint || "No hint available.";
+    this.board[cat][boardIdx].choices = chosen.choices || [chosen.a,"B","C","D"];
+    this.activeQuestion.q = chosen.q;
+    this.activeQuestion.a = chosen.a;
+    this.activeQuestion.hint = this.board[cat][boardIdx].hint;
+    this.activeQuestion.choices = this.board[cat][boardIdx].choices;
+    return true;
+  },
+
+  resolveQuestion(correct, scorerIndex = null) {
+    const { category, index, points } = this.activeQuestion;
+    this.board[category][index].used = true;
+    const scorer = (scorerIndex !== null) ? this.players[scorerIndex] : this.currentPlayer();
+    if (correct) scorer.score += points;
+    this.answered++;
+    this.activeQuestion = null;
+    this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
+  },
+
+  logSteal(stealerIdx, originalIdx, category, points, correct) {
+    this.stealLog.push({
+      stealer: this.players[stealerIdx].name,
+      from: this.players[originalIdx].name,
+      category, points, correct,
+      turn: this.answered + 1
+    });
+    this.players[stealerIdx].steals--;
+    this.players[stealerIdx].stealCount++;
+  },
+
+  isGameOver() { return this.answered >= this.totalQuestions; },
+  finalRanking() { return [...this.players].sort((a,b) => b.score - a.score); }
+};
+
+// ========== UI ==========
+const $ = id => document.getElementById(id);
+
+function renderPlayerInputs() {
+  const n = Math.max(2, Math.min(8, parseInt($("player-count").value) || 2));
+  const box = $("players-inputs"); box.innerHTML = "";
+  for (let i = 0; i < n; i++) {
+    const l = document.createElement("label");
+    l.textContent = "Player " + (i+1) + " Name";
+    const inp = document.createElement("input");
+    inp.type = "text"; inp.value = "Player " + (i+1);
+    inp.className = "player-name-input"; inp.dataset.idx = i;
+    box.appendChild(l); box.appendChild(inp);
+  }
+}
+$("player-count").addEventListener("input", renderPlayerInputs);
+renderPlayerInputs();
+
+$("start-btn").addEventListener("click", () => {
+  initAudio();
+  const inputs = document.querySelectorAll(".player-name-input");
+  const names = [...inputs].map(i => i.value.trim() || ("Player " + (+i.dataset.idx + 1)));
+  Game.init(names);
+  showScreen("board-screen");
+  renderBoard(); updateHUD();
+});
+
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  $(id).classList.add("active");
+}
+
+function renderBoard() {
+  const b = $("board"); b.innerHTML = "";
+  Game.categories.forEach(cat => {
+    const h = document.createElement("div");
+    h.className = "category-header"; h.textContent = cat;
+    b.appendChild(h);
+  });
+  for (let row = 0; row < 10; row++) {
+    Game.categories.forEach(cat => {
+      const tile = Game.board[cat][row];
+      const el = document.createElement("div");
+      el.className = "tile" + (tile.used ? " used" : "");
+      el.textContent = tile.used ? "—" : tile.points;
+      el.addEventListener("click", () => { if (!tile.used) openQuestion(cat, row); });
+      b.appendChild(el);
+    });
+  }
+}
+
+function updateHUD() {
+  $("current-player").textContent = Game.currentPlayer().name;
+  const sb = $("scoreboard"); sb.innerHTML = "";
+  Game.players.forEach((p, idx) => {
+    const c = document.createElement("div");
+    c.className = "score-chip" + (idx === Game.currentPlayerIndex ? " active" : "");
+    const toolsRemaining = Object.values(p.tools).filter(Boolean).length;
+    c.innerHTML = p.name + ": " + p.score +
+      "<span class='sub'>🎯 " + p.steals + " steals · 🛠️ " + toolsRemaining + " tools</span>";
+    sb.appendChild(c);
+  });
+}
+
+function openQuestion(cat, idx) {
+  const q = Game.selectQuestion(cat, idx);
+  if (!q) return;
+  renderQuestionModal();
+}
+
+function renderQuestionModal() {
+  const q = Game.activeQuestion;
+  const p = Game.currentPlayer();
+  $("q-category").textContent = q.category;
+  $("q-points").textContent = q.points + " pts";
+  $("q-text").textContent = q.q;
+  $("q-answer").textContent = q.a;
+
+  // Reset states
+  $("q-answer").classList.add("hidden");
+  $("q-hint").classList.add("hidden");
+  $("q-choices").classList.add("hidden");
+  $("q-two-answer").classList.add("hidden");
+  $("reveal-btn").classList.remove("hidden");
+  $("correct-btn").classList.add("hidden");
+  $("wrong-btn").classList.add("hidden");
+  $("steal-section").classList.add("hidden");
+
+  // Tool button states (based on current player's tools)
+  $("tool-hint").disabled = !p.tools.hint;
+  $("tool-choices").disabled = !p.tools.choices;
+  $("tool-two").disabled = !p.tools.two;
+  $("tool-replace").disabled = !p.tools.replace;
+
+  $("question-modal").classList.remove("hidden");
+}
+
+// ===== TOOLS =====
+$("tool-hint").addEventListener("click", () => {
+  const p = Game.currentPlayer();
+  if (!p.tools.hint) return;
+  p.tools.hint = false;
+  $("q-hint").textContent = "💡 Hint: " + Game.activeQuestion.hint;
+  $("q-hint").classList.remove("hidden");
+  $("tool-hint").disabled = true;
+  updateHUD();
+});
+
+$("tool-choices").addEventListener("click", () => {
+  const p = Game.currentPlayer();
+  if (!p.tools.choices) return;
+  p.tools.choices = false;
+  const box = $("q-choices"); box.innerHTML = "";
+  Game.activeQuestion.choices.forEach((c, i) => {
+    const el = document.createElement("div");
+    el.className = "choice-item";
+    el.textContent = String.fromCharCode(65 + i) + ") " + c;
+    box.appendChild(el);
+  });
+  box.classList.remove("hidden");
+  $("tool-choices").disabled = true;
+  updateHUD();
+});
+
+$("tool-two").addEventListener("click", () => {
+  const p = Game.currentPlayer();
+  if (!p.tools.two) return;
+  p.tools.two = false;
+  $("q-two-answer").classList.remove("hidden");
+  $("tool-two").disabled = true;
+  updateHUD();
+});
+
+$("tool-replace").addEventListener("click", () => {
+  const p = Game.currentPlayer();
+  if (!p.tools.replace) return;
+  const ok = Game.replaceActiveQuestion();
+  if (!ok) { alert("No other questions available at this difficulty!"); return; }
+  p.tools.replace = false;
+  renderQuestionModal(); // re-render with new question, tools state preserved
+  updateHUD();
+});
+
+// ===== REVEAL / RESOLVE =====
+$("reveal-btn").addEventListener("click", () => {
+  $("q-answer").classList.remove("hidden");
+  $("reveal-btn").classList.add("hidden");
+  $("correct-btn").classList.remove("hidden");
+  $("wrong-btn").classList.remove("hidden");
+});
+
+$("correct-btn").addEventListener("click", () => {
+  SFX.correct();
+  resolveAndAdvance(true, Game.currentPlayerIndex);
+});
+
+$("wrong-btn").addEventListener("click", () => {
+  SFX.wrong();
+  showStealPhase();
+});
+
+// ===== STEAL PHASE =====
+function showStealPhase() {
+  const box = $("steal-buttons"); box.innerHTML = "";
+  let anyAvailable = false;
+  Game.players.forEach((p, idx) => {
+    if (idx === Game.currentPlayerIndex) return; // can't steal own
+    const btn = document.createElement("button");
+    btn.className = "steal-btn";
+    btn.textContent = p.name + " (" + p.steals + " left)";
+    btn.disabled = p.steals <= 0;
+    if (p.steals > 0) anyAvailable = true;
+    btn.addEventListener("click", () => attemptSteal(idx));
+    box.appendChild(btn);
+  });
+  if (!anyAvailable) {
+    // No one can steal - just resolve as wrong
+    resolveAndAdvance(false, Game.currentPlayerIndex);
+    return;
+  }
+  $("correct-btn").classList.add("hidden");
+  $("wrong-btn").classList.add("hidden");
+  $("steal-section").classList.remove("hidden");
+}
+
+function attemptSteal(stealerIdx) {
+  const originalIdx = Game.currentPlayerIndex;
+  const cat = Game.activeQuestion.category;
+  const points = Game.activeQuestion.points;
+  const wantCorrect = confirm(
+    Game.players[stealerIdx].name + " is stealing!\n\nDid they answer correctly?\n\nOK = Correct (they get " + points + " pts)\nCancel = Wrong (steal used, no points)"
+  );
+  Game.logSteal(stealerIdx, originalIdx, cat, points, wantCorrect);
+  if (wantCorrect) {
+    SFX.correct();
+    resolveAndAdvance(true, stealerIdx);
+  } else {
+    SFX.wrong();
+    resolveAndAdvance(false, originalIdx);
+  }
+}
+
+$("skip-steal-btn").addEventListener("click", () => {
+  resolveAndAdvance(false, Game.currentPlayerIndex);
+});
+
+function resolveAndAdvance(correct, scorerIdx) {
+  Game.resolveQuestion(correct, scorerIdx);
+  $("question-modal").classList.add("hidden");
+  renderBoard(); updateHUD();
+  if (Game.isGameOver()) endGame();
+}
+
+// ===== END GAME =====
+$("end-game-btn").addEventListener("click", () => {
+  if (confirm("End game now?")) endGame();
+});
+
+function endGame() {
+  SFX.finish();
+  const ranked = Game.finalRanking();
+  const c = $("final-scores"); c.innerHTML = "";
+  ranked.forEach((p, i) => {
+    const row = document.createElement("div");
+    row.className = "final-row" + (i === 0 ? " winner" : "");
+    row.innerHTML = "<span>" + (i === 0 ? "🏆 " : "#" + (i+1) + " ") + p.name +
+      "</span><span>" + p.score + " pts (" + p.stealCount + " steals used)</span>";
+    c.appendChild(row);
+  });
+  const log = $("steal-log"); log.innerHTML = "";
+  if (Game.stealLog.length === 0) {
+    log.innerHTML = "<div>No steals happened this game.</div>";
+  } else {
+    Game.stealLog.forEach(s => {
+      const d = document.createElement("div");
+      d.textContent = "Turn " + s.turn + " · " + s.stealer + " stole from " + s.from +
+        " (" + s.category + ", " + s.points + " pts) → " + (s.correct ? "✔ Won " + s.points + "pts" : "✘ Missed");
+      log.appendChild(d);
+    });
+  }
+  showScreen("end-screen");
+}
+
+$("restart-btn").addEventListener("click", () => location.reload());
+</script>
+
+</body>
+</html>
